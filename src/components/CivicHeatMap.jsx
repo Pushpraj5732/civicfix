@@ -2,155 +2,111 @@ import { useEffect, useRef, useState } from "react";
 import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
+import { getComplaints } from "../services/complaintApi";
 
 export default function CivicHeatMap() {
   const mapRef = useRef(null);
+  const mapInstanceRef = useRef(null);
   const heatLayerRef = useRef(null);
 
   const [issueType, setIssueType] = useState("ALL");
+  const [complaints, setComplaints] = useState([]);
 
-  // 🔹 MOCK DATA (later from backend)
-  const complaints = [
-    { lat: 22.7196, lng: 75.8577, issueType: "ROAD", intensity: 0.9 },
-    { lat: 22.725, lng: 75.865, issueType: "GARBAGE", intensity: 0.8 },
-    { lat: 22.735, lng: 75.845, issueType: "DRAINAGE", intensity: 0.6 },
-    { lat: 22.71, lng: 75.88, issueType: "ROAD", intensity: 0.7 },
-    { lat: 22.70, lng: 75.83, issueType: "STREET_LIGHT", intensity: 0.3 },
-    { lat: 22.72, lng: 75.84, issueType: "GARBAGE", intensity: 0.4 },
-  ];
-const detectUserLocation = () => {
-  if (!navigator.geolocation) {
-    console.warn("Geolocation not supported");
-    return;
-  }
-
-  navigator.geolocation.getCurrentPosition(
-    (position) => {
-      const { latitude, longitude } = position.coords;
-
-      // Move map to user location
-      mapRef.current.setView([latitude, longitude], 14);
-
-      // Optional marker
-      L.circleMarker([latitude, longitude], {
-        radius: 8,
-        color: "blue",
-        fillColor: "blue",
-        fillOpacity: 0.8,
-      })
-        .addTo(mapRef.current)
-        .bindPopup("You are here")
-        .openPopup();
-    },
-    (error) => {
-      console.warn("Location access denied, using default city view");
-    }
-  );
-};
-const getAreaSummary = () => {
-  // 🔹 MOCK SUMMARY (later from backend)
-  return {
-    total: Math.floor(Math.random() * 20) + 5,
-    pending: Math.floor(Math.random() * 10) + 3,
-    resolved: Math.floor(Math.random() * 10) + 1,
-  };
-};
-
-  // 🔹 INIT MAP (RUNS ONCE)
-useEffect(() => {
-  mapRef.current = L.map("heatmap").setView([22.7196, 75.8577], 12);
-
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: "© OpenStreetMap",
-  }).addTo(mapRef.current);
-
-  detectUserLocation();
-
-  const onMapClick = (e) => {
-    const { lat, lng } = e.latlng;
-    const summary = getAreaSummary();
-
-    const popupContent = `
-      <div style="font-size:14px">
-        <b>📍 Nearby Area</b><br/><br/>
-        Total complaints: <b>${summary.total}</b><br/>
-        Pending: <b>${summary.pending}</b><br/>
-        Resolved: <b>${summary.resolved}</b><br/><br/>
-        <button
-          style="
-            background:#16a34a;
-            color:white;
-            border:none;
-            padding:6px 10px;
-            border-radius:6px;
-            cursor:pointer;
-          "
-        >
-          Report issue here
-        </button>
-      </div>
-    `;
-
-    L.popup()
-      .setLatLng([lat, lng])
-      .setContent(popupContent)
-      .openOn(mapRef.current);
-  };
-
-  mapRef.current.on("click", onMapClick);
-
-  return () => {
-    mapRef.current.off("click", onMapClick);
-    mapRef.current.remove();
-  };
-}, []);
-
-
-
-  // 🔹 UPDATE HEAT MAP WHEN FILTER CHANGES
+  // Fetch complaints for heatmap
   useEffect(() => {
-    if (!mapRef.current) return;
+    getComplaints()
+      .then((res) => setComplaints(res.data))
+      .catch(() => {});
+  }, []);
 
-    // remove old heat layer
-    if (heatLayerRef.current) {
-      mapRef.current.removeLayer(heatLayerRef.current);
+  // Init map
+  useEffect(() => {
+    if (mapInstanceRef.current) return;
+
+    mapInstanceRef.current = L.map("heatmap", {
+      scrollWheelZoom: true,
+    }).setView([22.7196, 75.8577], 12);
+
+    L.tileLayer(
+      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      {
+        attribution: "© OpenStreetMap © CARTO",
+      },
+    ).addTo(mapInstanceRef.current);
+
+    // Detect user location
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          const { latitude, longitude } = pos.coords;
+          mapInstanceRef.current.setView([latitude, longitude], 14);
+          L.circleMarker([latitude, longitude], {
+            radius: 8,
+            color: "#10b981",
+            fillColor: "#10b981",
+            fillOpacity: 0.8,
+          })
+            .addTo(mapInstanceRef.current)
+            .bindPopup("📍 You are here")
+            .openPopup();
+        },
+        () => {},
+      );
     }
 
-    const filtered = issueType === "ALL"
-      ? complaints
-      : complaints.filter(c => c.issueType === issueType);
+    return () => {
+      if (mapInstanceRef.current) {
+        mapInstanceRef.current.remove();
+        mapInstanceRef.current = null;
+      }
+    };
+  }, []);
 
-    const heatData = filtered.map(c => [
-      c.lat,
-      c.lng,
-      c.intensity,
-    ]);
+  // Update heat layer
+  useEffect(() => {
+    if (!mapInstanceRef.current) return;
 
-    heatLayerRef.current = L.heatLayer(heatData, {
-      radius: 30,
-      blur: 20,
-      maxZoom: 13,
-      gradient: {
-        0.2: "green",
-        0.5: "yellow",
-        0.8: "red",
-      },
-    }).addTo(mapRef.current);
+    if (heatLayerRef.current) {
+      mapInstanceRef.current.removeLayer(heatLayerRef.current);
+    }
 
-  }, [issueType]);
+    const filtered =
+      issueType === "ALL"
+        ? complaints
+        : complaints.filter((c) => c.issueType === issueType);
+
+    const heatData = filtered
+      .filter((c) => c.latitude && c.longitude)
+      .map((c) => [c.latitude, c.longitude, 0.7]);
+
+    if (heatData.length > 0) {
+      heatLayerRef.current = L.heatLayer(heatData, {
+        radius: 30,
+        blur: 20,
+        maxZoom: 13,
+        gradient: {
+          0.2: "#10b981",
+          0.5: "#f59e0b",
+          0.8: "#ef4444",
+        },
+      }).addTo(mapInstanceRef.current);
+    }
+  }, [issueType, complaints]);
 
   return (
-    <div className="bg-white rounded-xl shadow p-5 mt-10">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold">
-          Area Cleanliness Heat Map
-        </h3>
-        
-        {/* FILTER */}
+    <div className="glass-card p-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
+        <div>
+          <h3 className="text-lg font-semibold text-white">
+            🗺️ Issue Heat Map
+          </h3>
+          <p className="text-dark-400 text-sm">Real-time civic issue density</p>
+        </div>
+
         <select
           value={issueType}
           onChange={(e) => setIssueType(e.target.value)}
-          className="border rounded px-3 py-1 text-sm"
+          className="input-field w-auto text-sm py-2"
         >
           <option value="ALL">All Issues</option>
           <option value="ROAD">Road</option>
@@ -159,28 +115,27 @@ useEffect(() => {
           <option value="STREET_LIGHT">Street Light</option>
         </select>
       </div>
-      {/* LEGEND */}
-<div className="flex gap-4 text-sm mb-4">
-  <div className="flex items-center gap-2">
-    <span className="w-4 h-4 rounded-full bg-green-500"></span>
-    <span>Clean</span>
-  </div>
 
-  <div className="flex items-center gap-2">
-    <span className="w-4 h-4 rounded-full bg-yellow-400"></span>
-    <span>Moderate</span>
-  </div>
-
-  <div className="flex items-center gap-2">
-    <span className="w-4 h-4 rounded-full bg-red-500"></span>
-    <span>Critical</span>
-  </div>
-</div>
-
+      {/* Legend */}
+      <div className="flex gap-6 text-sm mb-4">
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-emerald-500" />
+          <span className="text-dark-400">Low</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-amber-500" />
+          <span className="text-dark-400">Medium</span>
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="w-3 h-3 rounded-full bg-red-500" />
+          <span className="text-dark-400">High</span>
+        </div>
+      </div>
 
       <div
         id="heatmap"
-        className="w-full h-[400px] rounded-lg"
+        className="w-full h-[400px] rounded-xl overflow-hidden"
+        style={{ zIndex: 0 }}
       />
     </div>
   );
