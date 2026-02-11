@@ -3,7 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
 import { getComplaints } from "../services/complaintApi";
-import gsap from "gsap";
 import CivicHeatMap from "../components/CivicHeatMap";
 
 export default function Home() {
@@ -30,31 +29,6 @@ export default function Home() {
         });
       })
       .catch(() => {});
-  }, []);
-
-  useEffect(() => {
-    gsap.fromTo(
-      ".hero-section",
-      { opacity: 0, y: 30 },
-      { opacity: 1, y: 0, duration: 0.8, ease: "power2.out" },
-    );
-    gsap.fromTo(
-      ".stat-card",
-      { opacity: 0, y: 20 },
-      {
-        opacity: 1,
-        y: 0,
-        duration: 0.6,
-        stagger: 0.15,
-        delay: 0.3,
-        ease: "power2.out",
-      },
-    );
-    gsap.fromTo(
-      ".map-section",
-      { opacity: 0, y: 20 },
-      { opacity: 1, y: 0, duration: 0.6, delay: 0.8, ease: "power2.out" },
-    );
   }, []);
 
   const statCards = [
@@ -90,21 +64,21 @@ export default function Home() {
 
       <div className="page-container">
         {/* Hero */}
-        <section className="hero-section text-center py-12 md:py-20">
+        <section className="hero-section text-center py-12 md:py-20 animate-fade-in">
           <div className="inline-flex items-center gap-2 bg-primary-500/10 border border-primary-500/20 rounded-full px-4 py-1.5 mb-6">
             <span className="w-2 h-2 bg-primary-400 rounded-full animate-pulse" />
-            <span className="text-primary-400 text-sm font-medium">
+            <span className="text-primary-500 dark:text-primary-400 text-sm font-medium">
               Live Tracking Active
             </span>
           </div>
 
-          <h2 className="text-4xl md:text-6xl font-extrabold text-white mb-4 leading-tight">
+          <h2 className="text-4xl md:text-6xl font-extrabold text-heading mb-4 leading-tight">
             Report Civic Issues
             <br />
             <span className="gradient-text">In Your Area</span>
           </h2>
 
-          <p className="text-dark-400 text-lg mb-8 max-w-xl mx-auto">
+          <p className="text-muted text-lg mb-8 max-w-xl mx-auto">
             Roads • Garbage • Drainage • Street Lights — AI-powered verification
             for faster resolution
           </p>
@@ -124,8 +98,11 @@ export default function Home() {
             </button>
           </div>
 
-          <p className="text-dark-500 text-sm mt-4">
-            Welcome back, <span className="text-primary-400">{user?.name}</span>
+          <p className="text-subtle text-sm mt-4">
+            Welcome back,{" "}
+            <span className="text-primary-500 dark:text-primary-400">
+              {user?.name}
+            </span>
           </p>
         </section>
 
@@ -134,14 +111,15 @@ export default function Home() {
           {statCards.map((s, i) => (
             <div
               key={i}
-              className={`stat-card glass-card p-6 text-center ${s.border} border hover:shadow-lg transition-all duration-300`}
+              className={`stat-card glass-card p-6 text-center ${s.border} border hover:shadow-lg transition-all duration-300 animate-slide-up`}
+              style={{ animationDelay: `${i * 0.15}s` }}
             >
               <div
                 className={`w-12 h-12 ${s.bg} rounded-xl flex items-center justify-center mx-auto mb-3 text-2xl`}
               >
                 {s.icon}
               </div>
-              <p className="text-dark-400 text-sm font-medium">{s.title}</p>
+              <p className="text-muted text-sm font-medium">{s.title}</p>
               <p
                 className={`text-3xl font-bold mt-1 bg-gradient-to-r ${s.color} bg-clip-text text-transparent`}
               >
@@ -152,7 +130,7 @@ export default function Home() {
         </section>
 
         {/* Heat Map */}
-        <section className="map-section">
+        <section className="map-section animate-fade-in">
           <CivicHeatMap />
         </section>
       </div>

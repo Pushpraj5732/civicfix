@@ -36,7 +36,7 @@ export default function ComplaintDetails() {
       <div className="min-h-screen">
         <Navbar />
         <div className="page-container text-center py-20">
-          <p className="text-dark-400">Complaint not found</p>
+          <p className="text-muted">Complaint not found</p>
         </div>
       </div>
     );
@@ -54,20 +54,19 @@ export default function ComplaintDetails() {
   return (
     <div className="min-h-screen">
       <Navbar />
-
       <div className="page-container max-w-3xl">
         {/* Header */}
         <div className="glass-card p-6 mb-4">
           <div className="flex items-start justify-between mb-4">
             <div className="flex items-center gap-3">
-              <div className="w-14 h-14 bg-white/5 rounded-xl flex items-center justify-center text-3xl">
+              <div className="w-14 h-14 bg-gray-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-3xl">
                 {issueIcon}
               </div>
               <div>
-                <h2 className="text-xl font-bold text-white">
+                <h2 className="text-xl font-bold text-heading">
                   {complaint.issueType.replace("_", " ")}
                 </h2>
-                <p className="text-dark-400 text-sm">
+                <p className="text-muted text-sm">
                   Filed on{" "}
                   {new Date(complaint.createdAt).toLocaleDateString("en-IN", {
                     day: "numeric",
@@ -80,9 +79,9 @@ export default function ComplaintDetails() {
             <StatusBadge status={complaint.status} />
           </div>
 
-          <p className="text-dark-300">{complaint.description}</p>
+          <p className="text-body">{complaint.description}</p>
 
-          <div className="flex flex-wrap gap-4 mt-4 text-sm text-dark-400">
+          <div className="flex flex-wrap gap-4 mt-4 text-sm text-muted">
             {complaint.zone?.name && (
               <span className="flex items-center gap-1">
                 📍 {complaint.zone.name}
@@ -93,7 +92,7 @@ export default function ComplaintDetails() {
               {complaint.longitude?.toFixed(4)}
             </span>
             {complaint.aiVerified && (
-              <span className="flex items-center gap-1 text-violet-400">
+              <span className="flex items-center gap-1 text-violet-500 dark:text-violet-400">
                 🤖 AI Verified ({(complaint.aiConfidence * 100).toFixed(0)}%)
               </span>
             )}
@@ -103,7 +102,7 @@ export default function ComplaintDetails() {
         {/* Images */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-4">
           <div className="glass-card p-4">
-            <p className="text-sm font-medium text-dark-300 mb-3">📸 Before</p>
+            <p className="text-sm font-medium text-body mb-3">📸 Before</p>
             {complaint.beforeImage ? (
               <img
                 src={complaint.beforeImage}
@@ -111,14 +110,13 @@ export default function ComplaintDetails() {
                 className="rounded-xl w-full object-cover max-h-64"
               />
             ) : (
-              <div className="h-40 bg-white/5 rounded-xl flex items-center justify-center text-dark-500">
+              <div className="h-40 bg-gray-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-subtle">
                 No image
               </div>
             )}
           </div>
-
           <div className="glass-card p-4">
-            <p className="text-sm font-medium text-dark-300 mb-3">📸 After</p>
+            <p className="text-sm font-medium text-body mb-3">📸 After</p>
             {complaint.afterImage ? (
               <img
                 src={complaint.afterImage}
@@ -126,7 +124,7 @@ export default function ComplaintDetails() {
                 className="rounded-xl w-full object-cover max-h-64"
               />
             ) : (
-              <div className="h-40 bg-white/5 rounded-xl flex items-center justify-center text-dark-500">
+              <div className="h-40 bg-gray-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-subtle">
                 Not resolved yet
               </div>
             )}
@@ -135,47 +133,43 @@ export default function ComplaintDetails() {
 
         {/* Timeline */}
         <div className="glass-card p-6">
-          <h3 className="text-lg font-semibold text-white mb-6">
+          <h3 className="text-lg font-semibold text-heading mb-6">
             📊 Status Timeline
           </h3>
-
           <div className="space-y-0">
             {statusLogs.map((log, idx) => (
               <div key={log._id} className="flex gap-4">
-                {/* Line */}
                 <div className="flex flex-col items-center">
                   <div
                     className={`w-3 h-3 rounded-full ${
                       idx === statusLogs.length - 1
                         ? "bg-primary-500 shadow-neon"
-                        : "bg-dark-500"
+                        : "bg-gray-300 dark:bg-dark-500"
                     }`}
                   />
                   {idx < statusLogs.length - 1 && (
-                    <div className="w-0.5 h-12 bg-dark-700" />
+                    <div className="w-0.5 h-12 bg-gray-200 dark:bg-dark-700" />
                   )}
                 </div>
-
-                {/* Content */}
                 <div className="pb-6">
                   <div className="flex items-center gap-2 mb-1">
                     <StatusBadge status={log.newStatus} />
-                    <span className="text-xs text-dark-500">
+                    <span className="text-xs text-subtle">
                       from {log.oldStatus}
                     </span>
                   </div>
-                  <p className="text-dark-400 text-sm">
+                  <p className="text-muted text-sm">
                     by{" "}
-                    <span className="text-white">
+                    <span className="text-heading">
                       {log.changedBy?.name || "System"}
                     </span>
                   </p>
                   {log.note && (
-                    <p className="text-dark-500 text-xs mt-1 italic">
+                    <p className="text-subtle text-xs mt-1 italic">
                       "{log.note}"
                     </p>
                   )}
-                  <p className="text-dark-600 text-xs mt-1">
+                  <p className="text-xs text-subtle mt-1">
                     {new Date(log.createdAt).toLocaleString("en-IN")}
                   </p>
                 </div>

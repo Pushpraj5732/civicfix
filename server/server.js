@@ -9,6 +9,7 @@ import authRoutes from "./routes/auth.js";
 import complaintRoutes from "./routes/complaints.js";
 import adminRoutes from "./routes/admin.js";
 import zoneRoutes from "./routes/zone.js";
+import Zone from "./models/Zone.js";
 
 dotenv.config();
 
@@ -27,6 +28,16 @@ app.use("/api/auth", authRoutes);
 app.use("/api/complaints", complaintRoutes);
 app.use("/api/admin", adminRoutes);
 app.use("/api/zone", zoneRoutes);
+
+// PUBLIC: Get all zones (no auth required — used by Register & File Complaint)
+app.get("/api/zones", async (req, res) => {
+  try {
+    const zones = await Zone.find().select("name description");
+    res.json(zones);
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+});
 
 // Health check
 app.get("/api/health", (req, res) => {

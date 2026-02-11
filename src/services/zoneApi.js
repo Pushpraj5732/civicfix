@@ -8,8 +8,14 @@ export const getZoneStats = (range) => {
   return api.get("/api/admin/zone-stats", { params: { range } });
 };
 
-export const getZones = () => {
+// Admin-only zone list (with head info)
+export const getAdminZones = () => {
   return api.get("/api/admin/zones");
+};
+
+// PUBLIC zone list (no auth needed — for register/complaint forms)
+export const getZones = () => {
+  return api.get("/api/zones");
 };
 
 export const getMyZoneStats = (range) => {

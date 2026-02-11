@@ -15,8 +15,15 @@
       rel="stylesheet"
     />
     <title>CivicFix – Smart Civic Issue Tracker</title>
+    <script>
+      // Prevent flash of wrong theme
+      (function() {
+        var t = localStorage.getItem('civicfix-theme') || 'dark';
+        if (t === 'dark') document.documentElement.classList.add('dark');
+      })();
+    </script>
   </head>
-  <body class="bg-dark-950 text-white antialiased">
+  <body class="antialiased">
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>

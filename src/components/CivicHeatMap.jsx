@@ -3,16 +3,19 @@ import L from "leaflet";
 import "leaflet/dist/leaflet.css";
 import "leaflet.heat";
 import { getComplaints } from "../services/complaintApi";
+import { useTheme } from "../context/ThemeContext";
 
 export default function CivicHeatMap() {
   const mapRef = useRef(null);
   const mapInstanceRef = useRef(null);
   const heatLayerRef = useRef(null);
+  const tileLayerRef = useRef(null);
 
+  const { theme } = useTheme();
   const [issueType, setIssueType] = useState("ALL");
   const [complaints, setComplaints] = useState([]);
 
-  // Fetch complaints for heatmap
+  // Fetch complaints
   useEffect(() => {
     getComplaints()
       .then((res) => setComplaints(res.data))
@@ -25,14 +28,17 @@ export default function CivicHeatMap() {
 
     mapInstanceRef.current = L.map("heatmap", {
       scrollWheelZoom: true,
-    }).setView([22.7196, 75.8577], 12);
+    }).setView([22.5565, 72.955], 13);
 
-    L.tileLayer(
-      "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-      {
-        attribution: "© OpenStreetMap © CARTO",
-      },
-    ).addTo(mapInstanceRef.current);
+    // Add initial tile layer
+    const tileUrl =
+      theme === "dark"
+        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+
+    tileLayerRef.current = L.tileLayer(tileUrl, {
+      attribution: "© OpenStreetMap © CARTO",
+    }).addTo(mapInstanceRef.current);
 
     // Detect user location
     if (navigator.geolocation) {
@@ -61,6 +67,22 @@ export default function CivicHeatMap() {
       }
     };
   }, []);
+
+  // Switch tile layer on theme change
+  useEffect(() => {
+    if (!mapInstanceRef.current || !tileLayerRef.current) return;
+
+    mapInstanceRef.current.removeLayer(tileLayerRef.current);
+
+    const tileUrl =
+      theme === "dark"
+        ? "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+        : "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png";
+
+    tileLayerRef.current = L.tileLayer(tileUrl, {
+      attribution: "© OpenStreetMap © CARTO",
+    }).addTo(mapInstanceRef.current);
+  }, [theme]);
 
   // Update heat layer
   useEffect(() => {
@@ -97,12 +119,11 @@ export default function CivicHeatMap() {
     <div className="glass-card p-6">
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-white">
+          <h3 className="text-lg font-semibold text-heading">
             🗺️ Issue Heat Map
           </h3>
-          <p className="text-dark-400 text-sm">Real-time civic issue density</p>
+          <p className="text-muted text-sm">Real-time civic issue density</p>
         </div>
-
         <select
           value={issueType}
           onChange={(e) => setIssueType(e.target.value)}
@@ -120,21 +141,21 @@ export default function CivicHeatMap() {
       <div className="flex gap-6 text-sm mb-4">
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-emerald-500" />
-          <span className="text-dark-400">Low</span>
+          <span className="text-muted">Low</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-amber-500" />
-          <span className="text-dark-400">Medium</span>
+          <span className="text-muted">Medium</span>
         </div>
         <div className="flex items-center gap-2">
           <span className="w-3 h-3 rounded-full bg-red-500" />
-          <span className="text-dark-400">High</span>
+          <span className="text-muted">High</span>
         </div>
       </div>
 
       <div
         id="heatmap"
-        className="w-full h-[400px] rounded-xl overflow-hidden"
+        className="w-full h-[400px] rounded-xl overflow-hidden border border-gray-200 dark:border-white/10"
         style={{ zIndex: 0 }}
       />
     </div>

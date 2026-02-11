@@ -13,13 +13,17 @@ api.interceptors.request.use((config) => {
   return config;
 });
 
-// Handle 401 errors
+// Handle 401 errors — only redirect if user is supposed to be logged in
 api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      if (window.location.pathname !== "/login") {
+      const publicPages = ["/login", "/register"];
+      const isPublicPage = publicPages.includes(window.location.pathname);
+
+      // Only redirect to login if we're NOT already on a public page
+      if (!isPublicPage && localStorage.getItem("token")) {
+        localStorage.removeItem("token");
         window.location.href = "/login";
       }
     }

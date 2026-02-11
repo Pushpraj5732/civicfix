@@ -21,13 +21,12 @@ export default function RegisterComplaint() {
   const [zones, setZones] = useState([]);
   const [aiResult, setAiResult] = useState(null);
   const [step, setStep] = useState(1);
+  const [error, setError] = useState("");
 
   useEffect(() => {
     getZones()
       .then((r) => setZones(r.data))
       .catch(() => {});
-
-    // Auto-detect location
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
         (pos) => {
@@ -48,39 +47,38 @@ export default function RegisterComplaint() {
   };
 
   const handleSubmit = async () => {
+    setError("");
     if (!image) {
-      alert("Please upload an image of the issue");
+      setError("Please upload an image of the issue");
       return;
     }
     if (!description.trim()) {
-      alert("Please provide a description");
+      setError("Please provide a description");
+      return;
+    }
+    if (!zoneName) {
+      setError("Please select a zone");
       return;
     }
 
     try {
       setLoading(true);
       setStep(2);
-
-      // Create complaint
       const res = await createComplaint({
         issueType,
         description,
-        latitude: Number(latitude),
-        longitude: Number(longitude),
+        latitude: Number(latitude) || 0,
+        longitude: Number(longitude) || 0,
         zoneName,
       });
-
       const complaintId = res.data._id;
 
-      // Upload image (triggers AI analysis)
       setStep(3);
       const formData = new FormData();
       formData.append("file", image);
       formData.append("type", "BEFORE");
-
       const uploadRes = await uploadComplaintImage(complaintId, formData);
 
-      // Show AI result
       setAiResult({
         verified: uploadRes.data.aiVerified,
         confidence: uploadRes.data.aiConfidence,
@@ -88,13 +86,9 @@ export default function RegisterComplaint() {
         detected: uploadRes.data.aiDetectedIssue,
       });
       setStep(4);
-
-      setTimeout(() => {
-        navigate("/my-complaints");
-      }, 3000);
+      setTimeout(() => navigate("/my-complaints"), 3000);
     } catch (err) {
-      console.error(err);
-      alert("Something went wrong. Please try again.");
+      setError(err.response?.data?.message || "Something went wrong");
       setStep(1);
     } finally {
       setLoading(false);
@@ -108,7 +102,6 @@ export default function RegisterComplaint() {
     { value: "STREET_LIGHT", label: "Street Light", icon: "💡" },
   ];
 
-  // AI verification step screen
   if (step > 1) {
     return (
       <div className="min-h-screen">
@@ -118,19 +111,19 @@ export default function RegisterComplaint() {
             {step === 2 && (
               <>
                 <div className="w-16 h-16 border-4 border-primary-500/30 border-t-primary-500 rounded-full animate-spin mx-auto mb-6" />
-                <h3 className="text-xl font-bold text-white mb-2">
+                <h3 className="text-xl font-bold text-heading mb-2">
                   Creating Complaint...
                 </h3>
-                <p className="text-dark-400">Submitting your report</p>
+                <p className="text-muted">Submitting your report</p>
               </>
             )}
             {step === 3 && (
               <>
-                <div className="w-16 h-16 border-4 border-accent-violet/30 border-t-accent-violet rounded-full animate-spin mx-auto mb-6" />
-                <h3 className="text-xl font-bold text-white mb-2">
+                <div className="w-16 h-16 border-4 border-violet-500/30 border-t-violet-500 rounded-full animate-spin mx-auto mb-6" />
+                <h3 className="text-xl font-bold text-heading mb-2">
                   🤖 AI Analyzing Image...
                 </h3>
-                <p className="text-dark-400">
+                <p className="text-muted">
                   Our AI engine is verifying the issue
                 </p>
               </>
@@ -146,24 +139,24 @@ export default function RegisterComplaint() {
                 >
                   {aiResult.status === "APPROVED" ? "✅" : "❌"}
                 </div>
-                <h3 className="text-xl font-bold text-white mb-2">
+                <h3 className="text-xl font-bold text-heading mb-2">
                   {aiResult.status === "APPROVED"
                     ? "Complaint Approved!"
                     : "Complaint Rejected"}
                 </h3>
-                <p className="text-dark-400 mb-4">
+                <p className="text-muted mb-4">
                   {aiResult.status === "APPROVED"
-                    ? "AI verified this as a genuine civic issue"
+                    ? "AI verified this as a genuine civic issue."
                     : "AI could not verify this as a genuine issue"}
                 </p>
                 <div className="glass-card p-4 mb-4">
                   <div className="flex justify-between text-sm mb-2">
-                    <span className="text-dark-400">AI Confidence</span>
-                    <span className="text-primary-400 font-semibold">
+                    <span className="text-muted">AI Confidence</span>
+                    <span className="text-primary-500 dark:text-primary-400 font-semibold">
                       {(aiResult.confidence * 100).toFixed(1)}%
                     </span>
                   </div>
-                  <div className="w-full bg-dark-700 rounded-full h-2">
+                  <div className="w-full bg-gray-200 dark:bg-dark-700 rounded-full h-2">
                     <div
                       className={`h-2 rounded-full transition-all duration-1000 ${
                         aiResult.status === "APPROVED"
@@ -173,14 +166,8 @@ export default function RegisterComplaint() {
                       style={{ width: `${aiResult.confidence * 100}%` }}
                     />
                   </div>
-                  {aiResult.detected && (
-                    <p className="text-xs text-dark-400 mt-2">
-                      Detected:{" "}
-                      <span className="text-white">{aiResult.detected}</span>
-                    </p>
-                  )}
                 </div>
-                <p className="text-dark-500 text-sm">
+                <p className="text-subtle text-sm">
                   Redirecting to your complaints...
                 </p>
               </>
@@ -194,21 +181,26 @@ export default function RegisterComplaint() {
   return (
     <div className="min-h-screen">
       <Navbar />
-
       <div className="page-container max-w-2xl">
         <h2 className="section-title">📝 File a Complaint</h2>
 
+        {error && (
+          <div className="bg-red-500/10 border border-red-500/30 text-red-500 dark:text-red-400 px-4 py-3 rounded-xl mb-4 text-sm">
+            {error}
+          </div>
+        )}
+
         {/* Image Upload */}
         <div className="glass-card p-6 mb-4">
-          <label className="block text-sm font-medium text-dark-300 mb-3">
-            Upload Issue Photo
+          <label className="block text-sm font-medium text-body mb-3">
+            Upload Issue Photo <span className="text-red-500">*</span>
           </label>
           <div
             onClick={() => document.getElementById("fileInput").click()}
             className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all duration-300 ${
               imagePreview
                 ? "border-primary-500/50"
-                : "border-white/10 hover:border-white/20"
+                : "border-gray-300 dark:border-white/10 hover:border-gray-400 dark:hover:border-white/20"
             }`}
           >
             {imagePreview ? (
@@ -218,15 +210,15 @@ export default function RegisterComplaint() {
                   alt="Preview"
                   className="max-h-48 mx-auto rounded-lg mb-3"
                 />
-                <p className="text-sm text-primary-400">
+                <p className="text-sm text-primary-500 dark:text-primary-400">
                   Click to change image
                 </p>
               </div>
             ) : (
               <div>
                 <div className="text-4xl mb-3">📷</div>
-                <p className="text-dark-400">Click to upload or drag & drop</p>
-                <p className="text-xs text-dark-500 mt-1">
+                <p className="text-muted">Click to upload or drag & drop</p>
+                <p className="text-xs text-subtle mt-1">
                   JPG, PNG, WebP — Max 10MB
                 </p>
               </div>
@@ -243,8 +235,8 @@ export default function RegisterComplaint() {
 
         {/* Issue Type */}
         <div className="glass-card p-6 mb-4">
-          <label className="block text-sm font-medium text-dark-300 mb-3">
-            Issue Type
+          <label className="block text-sm font-medium text-body mb-3">
+            Issue Type <span className="text-red-500">*</span>
           </label>
           <div className="grid grid-cols-2 gap-3">
             {issueTypes.map((t) => (
@@ -253,8 +245,8 @@ export default function RegisterComplaint() {
                 onClick={() => setIssueType(t.value)}
                 className={`p-4 rounded-xl text-left transition-all duration-300 border ${
                   issueType === t.value
-                    ? "bg-primary-500/10 border-primary-500/30 text-primary-400"
-                    : "bg-white/5 border-white/10 text-dark-300 hover:border-white/20"
+                    ? "bg-primary-500/10 border-primary-500/30 text-primary-500 dark:text-primary-400"
+                    : "bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-body hover:border-gray-300 dark:hover:border-white/20"
                 }`}
               >
                 <span className="text-2xl">{t.icon}</span>
@@ -266,18 +258,23 @@ export default function RegisterComplaint() {
 
         {/* Zone */}
         <div className="glass-card p-6 mb-4">
-          <label className="block text-sm font-medium text-dark-300 mb-3">
-            Zone
+          <label className="block text-sm font-medium text-body mb-3">
+            Zone <span className="text-red-500">*</span>
+            <span className="text-subtle text-xs ml-2">
+              (Assigned to this zone's head)
+            </span>
           </label>
           <select
             value={zoneName}
             onChange={(e) => setZoneName(e.target.value)}
             className="input-field"
+            required
           >
-            <option value="">Select Zone</option>
+            <option value="">-- Select Zone --</option>
             {zones.map((z) => (
               <option key={z._id} value={z.name}>
-                {z.name} — {z.description || ""}
+                {z.name}
+                {z.description ? ` — ${z.description}` : ""}
               </option>
             ))}
           </select>
@@ -285,24 +282,24 @@ export default function RegisterComplaint() {
 
         {/* Description */}
         <div className="glass-card p-6 mb-4">
-          <label className="block text-sm font-medium text-dark-300 mb-3">
-            Description
+          <label className="block text-sm font-medium text-body mb-3">
+            Description <span className="text-red-500">*</span>
           </label>
           <textarea
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             className="input-field min-h-[100px] resize-none"
-            placeholder="Describe the issue in detail..."
+            placeholder="Describe the issue..."
             rows="3"
           />
         </div>
 
         {/* Location */}
         <div className="glass-card p-6 mb-6">
-          <label className="block text-sm font-medium text-dark-300 mb-3">
-            📍 Location
+          <label className="block text-sm font-medium text-body mb-3">
+            📍 Location{" "}
             {latitude && (
-              <span className="text-primary-400 text-xs ml-2">
+              <span className="text-primary-500 dark:text-primary-400 text-xs ml-2">
                 (Auto-detected)
               </span>
             )}
@@ -327,7 +324,6 @@ export default function RegisterComplaint() {
           </div>
         </div>
 
-        {/* Submit */}
         <button
           disabled={loading}
           onClick={handleSubmit}

@@ -1,5 +1,6 @@
 export default {
   content: ["./index.html", "./src/**/*.{js,jsx}"],
+  darkMode: "class",
   theme: {
     extend: {
       colors: {
@@ -43,6 +44,7 @@ export default {
         "glass-lg": "0 16px 48px rgba(0, 0, 0, 0.12)",
         neon: "0 0 20px rgba(16, 185, 129, 0.3)",
         card: "0 1px 3px rgba(0,0,0,0.04), 0 6px 16px rgba(0,0,0,0.06)",
+        "light-card": "0 2px 8px rgba(0,0,0,0.06), 0 8px 24px rgba(0,0,0,0.08)",
       },
       borderRadius: {
         "2xl": "1rem",

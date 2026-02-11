@@ -43,7 +43,6 @@ export default function ZoneHeadDashboard() {
       setComplaints((prev) =>
         prev.map((c) => (c._id === id ? { ...c, status: newStatus } : c)),
       );
-      // Refresh stats
       const statsRes = await getMyZoneStats(range);
       setStats(statsRes.data);
     } catch (err) {
@@ -110,17 +109,15 @@ export default function ZoneHeadDashboard() {
   return (
     <div className="min-h-screen">
       <Navbar />
-
       <div className="page-container">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
           <div>
             <h2 className="section-title mb-1">📍 Zone Dashboard</h2>
-            <p className="text-dark-400 text-sm">
+            <p className="text-muted text-sm">
               {user?.zone?.name || "Your Zone"} — managed by {user?.name}
             </p>
           </div>
-
           <div className="flex gap-2">
             {ranges.map((r) => (
               <button
@@ -128,8 +125,8 @@ export default function ZoneHeadDashboard() {
                 onClick={() => setRange(r.value)}
                 className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
                   range === r.value
-                    ? "bg-primary-500/20 text-primary-400 border border-primary-500/30"
-                    : "bg-white/5 text-dark-400 border border-white/10 hover:border-white/20"
+                    ? "bg-primary-500/20 text-primary-500 dark:text-primary-400 border border-primary-500/30"
+                    : "bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-dark-400 border border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20"
                 }`}
               >
                 {r.label}
@@ -143,14 +140,14 @@ export default function ZoneHeadDashboard() {
           {metricCards.map((m, i) => (
             <div
               key={i}
-              className="glass-card p-5 text-center border border-white/10 hover:border-primary-500/20 transition-all"
+              className="glass-card p-5 text-center hover:border-primary-500/20 transition-all"
             >
               <div
                 className={`w-10 h-10 ${m.bg} rounded-lg flex items-center justify-center mx-auto mb-2 text-lg`}
               >
                 {m.icon}
               </div>
-              <p className="text-dark-400 text-xs font-medium">{m.label}</p>
+              <p className="text-muted text-xs font-medium">{m.label}</p>
               <p
                 className={`text-2xl font-bold mt-1 bg-gradient-to-r ${m.gradient} bg-clip-text text-transparent`}
               >
@@ -163,14 +160,13 @@ export default function ZoneHeadDashboard() {
         {/* Charts */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
           <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">
+            <h3 className="text-lg font-semibold text-heading mb-4">
               Status Overview
             </h3>
             <ZoneStatusBarChart data={stats?.statusBreakdown} />
           </div>
-
           <div className="glass-card p-6">
-            <h3 className="text-lg font-semibold text-white mb-4">
+            <h3 className="text-lg font-semibold text-heading mb-4">
               Issues Breakdown
             </h3>
             <ZoneIssuePieChart data={stats?.issueBreakdown} />
@@ -180,7 +176,7 @@ export default function ZoneHeadDashboard() {
         {/* Complaints List */}
         <div className="glass-card p-6">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <h3 className="text-lg font-semibold text-white">
+            <h3 className="text-lg font-semibold text-heading">
               Zone Complaints
             </h3>
             <div className="flex gap-2 flex-wrap">
@@ -190,8 +186,8 @@ export default function ZoneHeadDashboard() {
                   onClick={() => setStatusFilter(s)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
                     statusFilter === s
-                      ? "bg-primary-500/20 text-primary-400 border border-primary-500/30"
-                      : "bg-white/5 text-dark-400 border border-white/10 hover:border-white/20"
+                      ? "bg-primary-500/20 text-primary-500 dark:text-primary-400 border border-primary-500/30"
+                      : "bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-dark-400 border border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20"
                   }`}
                 >
                   {s.replace("_", " ")}
@@ -202,14 +198,14 @@ export default function ZoneHeadDashboard() {
 
           {filteredComplaints.length === 0 ? (
             <div className="text-center py-8">
-              <p className="text-dark-400">No complaints found in this zone</p>
+              <p className="text-muted">No complaints found in this zone</p>
             </div>
           ) : (
             <div className="space-y-3">
               {filteredComplaints.map((c) => (
                 <div
                   key={c._id}
-                  className="bg-white/5 rounded-xl p-4 border border-white/5 hover:border-white/10 transition-all"
+                  className="bg-gray-50 dark:bg-white/5 rounded-xl p-4 border border-gray-200 dark:border-white/5 hover:border-gray-300 dark:hover:border-white/10 transition-all"
                 >
                   <div className="flex items-start justify-between gap-4">
                     <div className="flex-1">
@@ -223,22 +219,22 @@ export default function ZoneHeadDashboard() {
                                 ? "🌊"
                                 : "💡"}
                         </span>
-                        <span className="text-white font-medium">
+                        <span className="text-heading font-medium">
                           {c.issueType.replace("_", " ")}
                         </span>
                         <StatusBadge status={c.status} />
                       </div>
-                      <p className="text-dark-400 text-sm line-clamp-1">
+                      <p className="text-muted text-sm line-clamp-1">
                         {c.description}
                       </p>
-                      <p className="text-dark-500 text-xs mt-1">
+                      <p className="text-subtle text-xs mt-1">
                         by {c.user?.name} •{" "}
                         {new Date(c.createdAt).toLocaleDateString("en-IN", {
                           day: "numeric",
                           month: "short",
                         })}
                         {c.aiVerified && (
-                          <span className="ml-2 text-violet-400">
+                          <span className="ml-2 text-violet-500 dark:text-violet-400">
                             🤖 AI Verified
                           </span>
                         )}
@@ -252,7 +248,7 @@ export default function ZoneHeadDashboard() {
                           onClick={() =>
                             handleStatusUpdate(c._id, "IN_PROGRESS")
                           }
-                          className="px-3 py-1.5 bg-blue-500/10 text-blue-400 border border-blue-500/20 rounded-lg text-xs font-medium hover:bg-blue-500/20 transition-all"
+                          className="px-3 py-1.5 bg-blue-500/10 text-blue-500 dark:text-blue-400 border border-blue-500/20 rounded-lg text-xs font-medium hover:bg-blue-500/20 transition-all"
                         >
                           Start Work
                         </button>
@@ -260,7 +256,7 @@ export default function ZoneHeadDashboard() {
                       {c.status === "IN_PROGRESS" && (
                         <button
                           onClick={() => handleStatusUpdate(c._id, "RESOLVED")}
-                          className="px-3 py-1.5 bg-green-500/10 text-green-400 border border-green-500/20 rounded-lg text-xs font-medium hover:bg-green-500/20 transition-all"
+                          className="px-3 py-1.5 bg-green-500/10 text-green-500 dark:text-green-400 border border-green-500/20 rounded-lg text-xs font-medium hover:bg-green-500/20 transition-all"
                         >
                           Mark Resolved
                         </button>
