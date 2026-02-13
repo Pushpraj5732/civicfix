@@ -14,17 +14,22 @@ def load_models():
         os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
         import tensorflow as tf
         
-        base_path = os.path.join(os.path.dirname(__file__), '..', 'ML_Model')
+        # Models are now stored locally in ./models/
+        models_dir = os.path.join(os.path.dirname(__file__), 'models')
         
-        garbage_model_path = os.path.join(base_path, 'garbage_detector', 'garbage_detector_model.h5')
+        garbage_model_path = os.path.join(models_dir, 'garbage_detector_model.keras')
         if os.path.exists(garbage_model_path):
             models['garbage'] = tf.keras.models.load_model(garbage_model_path)
             print(f'✅ Loaded garbage detector model')
+        else:
+            print(f'❌ Garbage model not found at {garbage_model_path}')
         
-        pothole_model_path = os.path.join(base_path, 'pothole_detector', 'pothole_detector_model.h5')
+        pothole_model_path = os.path.join(models_dir, 'pothole_detector_model.h5')
         if os.path.exists(pothole_model_path):
             models['pothole'] = tf.keras.models.load_model(pothole_model_path)
             print(f'✅ Loaded pothole detector model')
+        else:
+            print(f'❌ Pothole model not found at {pothole_model_path}')
             
     except ImportError:
         print('⚠️  TensorFlow not installed. AI service will use mock predictions.')
@@ -34,6 +39,8 @@ def load_models():
 
 def predict_with_model(image_path, issue_type):
     """Run prediction using the appropriate model."""
+    CONFIDENCE_THRESHOLD = 0.70  # 70% minimum to make a definitive call
+
     try:
         import tensorflow as tf
         from PIL import Image
@@ -42,9 +49,11 @@ def predict_with_model(image_path, issue_type):
         if issue_type in ['GARBAGE']:
             model = models.get('garbage')
             detected = 'garbage'
+            clean_label = 'no_garbage'
         elif issue_type in ['ROAD']:
             model = models.get('pothole')
             detected = 'pothole'
+            clean_label = 'normal'
         else:
             # For DRAINAGE and STREET_LIGHT, auto-approve
             return {
@@ -67,16 +76,44 @@ def predict_with_model(image_path, issue_type):
         img_array = np.expand_dims(img_array, axis=0)
         
         # Predict
-        prediction = model.predict(img_array, verbose=0)
-        confidence = float(prediction[0][0])
+        raw = float(model.predict(img_array, verbose=0)[0][0])
         
-        # For binary classification: > 0.5 means positive (issue detected)
-        is_real = confidence > 0.5
-        
+        # Determine which class the raw score leans toward
+        # For garbage: raw < 0.5 → garbage, raw > 0.5 → no_garbage
+        # For pothole: raw > 0.5 → pothole, raw < 0.5 → normal
+        if issue_type in ['ROAD']:
+            # Pothole model: higher raw = pothole
+            if raw > 0.5:
+                leaning = detected
+                confidence = raw
+            else:
+                leaning = clean_label
+                confidence = 1.0 - raw
+        else:
+            # Garbage model: lower raw = garbage
+            if raw < 0.5:
+                leaning = detected
+                confidence = 1.0 - raw
+            else:
+                leaning = clean_label
+                confidence = raw
+
+        confidence_pct = confidence * 100.0
+
+        # Apply threshold: if the model isn't sure enough, mark uncertain
+        if confidence_pct < CONFIDENCE_THRESHOLD * 100:
+            return {
+                'isReal': False,
+                'confidence': round(confidence, 4),
+                'detectedIssue': 'uncertain'
+            }
+
+        is_real = (leaning == detected)
+
         return {
             'isReal': is_real,
-            'confidence': confidence if is_real else 1 - confidence,
-            'detectedIssue': detected if is_real else 'clean'
+            'confidence': round(confidence, 4),
+            'detectedIssue': leaning
         }
         
     except Exception as e:

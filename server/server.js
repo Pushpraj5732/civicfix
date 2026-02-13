@@ -4,6 +4,7 @@ import cors from "cors";
 import dotenv from "dotenv";
 import path from "path";
 import { fileURLToPath } from "url";
+import morgan from "morgan";  
 
 import authRoutes from "./routes/auth.js";
 import complaintRoutes from "./routes/complaints.js";
@@ -20,6 +21,7 @@ const app = express();
 
 // Middleware
 app.use(cors());
+app.use(morgan("dev"));
 app.use(express.json());
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
