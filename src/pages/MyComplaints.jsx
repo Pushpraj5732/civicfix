@@ -1,48 +1,143 @@
 import { useEffect, useState } from "react";
 import { getMyComplaints } from "../services/complaintApi";
-import ComplaintCard from "../components/ComplaintCard";
 import { useNavigate } from "react-router-dom";
+import Navbar from "../components/Navbar";
+import StatusBadge from "../components/StatusBadge";
 
 export default function MyComplaints() {
   const [complaints, setComplaints] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [filter, setFilter] = useState("ALL");
   const navigate = useNavigate();
 
   useEffect(() => {
     getMyComplaints()
-      .then((res) => {
-        setComplaints(res.data);
-      })
-      .catch((err) => {
-        console.error(err);
-        alert("Failed to load complaints");
-      })
+      .then((res) => setComplaints(res.data))
+      .catch((err) => console.error(err))
       .finally(() => setLoading(false));
   }, []);
 
+  const filtered =
+    filter === "ALL"
+      ? complaints
+      : complaints.filter((c) => c.status === filter);
+
   if (loading) {
-    return <p className="p-6">Loading complaints...</p>;
+    return (
+      <div className="min-h-screen">
+        <Navbar />
+        <div className="page-container flex items-center justify-center min-h-[50vh]">
+          <div className="text-center">
+            <div className="w-12 h-12 border-4 border-primary-500/30 border-t-primary-500 rounded-full animate-spin mx-auto mb-4" />
+            <p className="text-muted">Loading your complaints...</p>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   return (
-    <div className="min-h-screen bg-gray-100 p-6">
-      <h2 className="text-2xl font-bold mb-6">My Complaints</h2>
-
-      {complaints.length === 0 ? (
-        <p className="text-gray-500">No complaints found.</p>
-      ) : (
-        <div className="space-y-4">
-          {complaints.map((c) => (
-            <div
-              key={c.id}
-              onClick={() => navigate(`/complaints/${c.id}`)}
-              className="cursor-pointer"
-            >
-              <ComplaintCard complaint={c} />
-            </div>
-          ))}
+    <div className="min-h-screen">
+      <Navbar />
+      <div className="page-container">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+          <h2 className="section-title mb-0">📋 My Complaints</h2>
+          <div className="flex gap-2 flex-wrap">
+            {[
+              "ALL",
+              "PENDING",
+              "APPROVED",
+              "IN_PROGRESS",
+              "RESOLVED",
+              "REJECTED",
+            ].map((s) => (
+              <button
+                key={s}
+                onClick={() => setFilter(s)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all ${
+                  filter === s
+                    ? "bg-primary-500/20 text-primary-500 dark:text-primary-400 border border-primary-500/30"
+                    : "bg-gray-100 dark:bg-white/5 text-gray-500 dark:text-dark-400 border border-gray-200 dark:border-white/10 hover:border-gray-300 dark:hover:border-white/20"
+                }`}
+              >
+                {s.replace("_", " ")}
+              </button>
+            ))}
+          </div>
         </div>
-      )}
+
+        {filtered.length === 0 ? (
+          <div className="glass-card p-12 text-center">
+            <div className="text-5xl mb-4">📭</div>
+            <p className="text-muted text-lg">No complaints found</p>
+            <p className="text-subtle text-sm mt-1">
+              {filter !== "ALL"
+                ? "Try a different filter"
+                : "File your first complaint to get started"}
+            </p>
+            {filter === "ALL" && (
+              <button
+                onClick={() => navigate("/file-complaint")}
+                className="btn-primary mt-6"
+              >
+                📝 File a Complaint
+              </button>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filtered.map((c) => (
+              <div
+                key={c._id}
+                onClick={() => navigate(`/complaints/${c._id}`)}
+                className="glass-card p-5 flex items-center justify-between cursor-pointer hover:border-primary-500/20 transition-all duration-300 group"
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-12 h-12 bg-gray-100 dark:bg-white/5 rounded-xl flex items-center justify-center text-xl">
+                    {c.issueType === "ROAD"
+                      ? "🚗"
+                      : c.issueType === "GARBAGE"
+                        ? "🗑️"
+                        : c.issueType === "DRAINAGE"
+                          ? "🌊"
+                          : "💡"}
+                  </div>
+                  <div>
+                    <p className="text-heading font-semibold group-hover:text-primary-500 dark:group-hover:text-primary-400 transition-colors">
+                      {c.issueType.replace("_", " ")}
+                    </p>
+                    <p className="text-muted text-sm mt-0.5 line-clamp-1 max-w-xs">
+                      {c.description}
+                    </p>
+                    <p className="text-subtle text-xs mt-1">
+                      {new Date(c.createdAt).toLocaleDateString("en-IN", {
+                        day: "numeric",
+                        month: "short",
+                        year: "numeric",
+                      })}
+                      {c.zone?.name && (
+                        <span className="ml-2">📍 {c.zone.name}</span>
+                      )}
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  {c.aiVerified && (
+                    <span className="text-xs bg-violet-500/10 text-violet-500 dark:text-violet-400 px-2 py-1 rounded-lg border border-violet-500/20">
+                      🤖 AI Verified
+                    </span>
+                  )}
+                  <StatusBadge status={c.status} />
+                  <span className="text-gray-400 dark:text-dark-500 group-hover:text-gray-600 dark:group-hover:text-dark-300 transition-colors">
+                    →
+                  </span>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
