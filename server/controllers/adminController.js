@@ -1,26 +1,6 @@
-import Complaint from "../models/Complaint.js";
 import Zone from "../models/Zone.js";
-
-// Helper: get date range filter
-const getDateFilter = (range) => {
-  if (!range) return {};
-  const now = new Date();
-  let startDate;
-  switch (range) {
-    case "1w":
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
-    case "1m":
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      break;
-    case "6m":
-      startDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
-      break;
-    default:
-      return {};
-  }
-  return { createdAt: { $gte: startDate } };
-};
+import { getDateFilter } from "../utils/dateFilter.js";
+import { fillTrendGaps } from "../utils/chartHelper.js";
 
 // GET /api/admin/stats — Dashboard stats with time range filter
 export const getAdminStats = async (req, res) => {
@@ -51,9 +31,9 @@ export const getAdminStats = async (req, res) => {
     ]);
 
     // Daily trend (last 30 days)
-    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const dailyTrend = await Complaint.aggregate([
-      { $match: { createdAt: { $gte: thirtyDaysAgo } } },
+    const trendFilter = { createdAt: { $gte: thirtyDaysAgo } };
+    const rawTrend = await Complaint.aggregate([
+      { $match: trendFilter },
       {
         $group: {
           _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
@@ -62,6 +42,8 @@ export const getAdminStats = async (req, res) => {
       },
       { $sort: { _id: 1 } },
     ]);
+
+    const dailyTrend = fillTrendGaps(rawTrend, 30);
 
     res.json({
       total,

@@ -17,13 +17,10 @@ const complaintSchema = new mongoose.Schema(
       required: [true, "Description is required"],
       trim: true,
     },
-    latitude: {
-      type: Number,
-      required: true,
-    },
-    longitude: {
-      type: Number,
-      required: true,
+    address: {
+      type: String,
+      required: [true, "Address is required"],
+      trim: true,
     },
     zone: {
       type: mongoose.Schema.Types.ObjectId,

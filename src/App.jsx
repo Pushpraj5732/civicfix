@@ -5,6 +5,7 @@ import RegisterComplaint from "./pages/RegisterComplaint";
 import MyComplaints from "./pages/MyComplaints";
 import ComplaintDetails from "./pages/ComplaintDetails";
 import Home from "./pages/Home";
+import Landing from "./pages/Landing";
 import AdminDashboard from "./pages/AdminDashboard";
 import ZoneHeadDashboard from "./pages/ZoneHeadDashboard";
 import Login from "./pages/Login";
@@ -27,16 +28,22 @@ function AppRoutes() {
 
   return (
     <Routes>
-      {/* Public */}
-      <Route path="/login" element={!user ? <Login /> : <Navigate to="/" />} />
+      {/* Public — Landing page for guests */}
+      <Route
+        path="/"
+        element={!user ? <Landing /> : <Navigate to="/home" />}
+      />
+
+      {/* Public — Auth pages (redirect to /home if already logged in) */}
+      <Route path="/login" element={!user ? <Login /> : <Navigate to="/home" />} />
       <Route
         path="/register"
-        element={!user ? <Register /> : <Navigate to="/" />}
+        element={!user ? <Register /> : <Navigate to="/home" />}
       />
 
       {/* Protected — any logged-in user */}
       <Route
-        path="/"
+        path="/home"
         element={
           <ProtectedRoute>
             <Home />

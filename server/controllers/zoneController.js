@@ -1,26 +1,7 @@
-import Complaint from "../models/Complaint.js";
 import StatusLog from "../models/StatusLog.js";
-
-// Helper: get date range filter
-const getDateFilter = (range) => {
-  if (!range) return {};
-  const now = new Date();
-  let startDate;
-  switch (range) {
-    case "1w":
-      startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-      break;
-    case "1m":
-      startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-      break;
-    case "6m":
-      startDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
-      break;
-    default:
-      return {};
-  }
-  return { createdAt: { $gte: startDate } };
-};
+import Complaint from "../models/Complaint.js";
+import { getDateFilter } from "../utils/dateFilter.js";
+import { fillTrendGaps } from "../utils/chartHelper.js";
 
 // GET /api/zone/my-stats — Zone head's own zone stats
 export const getMyZoneStats = async (req, res) => {
@@ -57,6 +38,22 @@ export const getMyZoneStats = async (req, res) => {
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]);
 
+    // Daily trend
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const trendFilter = { ...filter, createdAt: { $gte: thirtyDaysAgo } };
+    const rawTrend = await Complaint.aggregate([
+      { $match: trendFilter },
+      {
+        $group: {
+          _id: { $dateToString: { format: "%Y-%m-%d", date: "$createdAt" } },
+          count: { $sum: 1 },
+        },
+      },
+      { $sort: { _id: 1 } },
+    ]);
+
+    const dailyTrend = fillTrendGaps(rawTrend, 30);
+
     res.json({
       total,
       pending,
@@ -66,6 +63,7 @@ export const getMyZoneStats = async (req, res) => {
       rejected,
       issueBreakdown,
       statusBreakdown,
+      dailyTrend,
     });
   } catch (err) {
     console.error("Zone stats error:", err);
@@ -81,12 +79,23 @@ export const getZoneComplaints = async (req, res) => {
       return res.status(400).json({ message: "No zone assigned" });
     }
 
-    const { status, range } = req.query;
+    const { status, range, issueType, search } = req.query;
     const filter = { zone: zoneId };
-    if (status) filter.status = status;
+    
+    if (status && status !== "ALL") filter.status = status;
+    if (issueType && issueType !== "ALL") filter.issueType = issueType;
 
     const dateFilter = getDateFilter(range);
     Object.assign(filter, dateFilter);
+
+    // Search query
+    if (search) {
+      filter.$or = [
+        { description: { $regex: search, $options: "i" } },
+        { address: { $regex: search, $options: "i" } },
+        { _id: search.length === 24 ? search : null }, // Exact ID match if valid length
+      ].filter(f => f._id !== null);
+    }
 
     const complaints = await Complaint.find(filter)
       .populate("user", "name email")
@@ -108,6 +117,10 @@ export const updateZoneComplaintStatus = async (req, res) => {
     const complaint = await Complaint.findById(id);
     if (!complaint) {
       return res.status(404).json({ message: "Complaint not found" });
+    }
+
+    if (!zoneId) {
+      return res.status(403).json({ message: "You are not assigned to a zone." });
     }
 
     // Ensure complaint belongs to this zone
@@ -132,6 +145,6 @@ export const updateZoneComplaintStatus = async (req, res) => {
     res.json(complaint);
   } catch (err) {
     console.error("Update zone complaint status error:", err);
-    res.status(500).json({ message: "Server error" });
+    res.status(500).json({ message: err.message || "Server error" });
   }
 };
