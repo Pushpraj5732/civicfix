@@ -87,7 +87,7 @@ export default function Login() {
         </div>
 
         {/* Role Tabs */}
-        <div className="grid grid-cols-3 gap-2 mb-6">
+        <div className="grid grid-cols-1 xs:grid-cols-3 gap-2 mb-6">
           {roleTabs.map((tab) => (
             <button
               key={tab.value}
@@ -101,8 +101,8 @@ export default function Login() {
                   : "bg-gray-50 dark:bg-white/5 border-gray-200 dark:border-white/10 text-muted hover:border-gray-300 dark:hover:border-white/20"
               }`}
             >
-              <span className="text-xl block">{tab.icon}</span>
-              <span className="text-xs font-medium block mt-1">
+              <span className="text-xl sm:text-2xl block">{tab.icon}</span>
+              <span className="text-[10px] sm:text-xs font-medium block mt-1">
                 {tab.label}
               </span>
             </button>

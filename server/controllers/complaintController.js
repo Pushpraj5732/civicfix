@@ -1,11 +1,20 @@
+import axios from "axios";
 import Complaint from "../models/Complaint.js";
+
 import StatusLog from "../models/StatusLog.js";
 import Zone from "../models/Zone.js";
+import { validationResult } from "express-validator";
 
 // POST /api/complaints — Create complaint
 export const createComplaint = async (req, res) => {
+  // Check express-validator errors
+  const errors = validationResult(req);
+  if (!errors.isEmpty()) {
+    return res.status(400).json({ message: errors.array()[0].msg });
+  }
+
   try {
-    const { issueType, description, latitude, longitude, zoneName } = req.body;
+    const { issueType, description, address, zoneName } = req.body;
 
     // Find zone if provided
     let zoneId = null;
@@ -18,8 +27,7 @@ export const createComplaint = async (req, res) => {
       user: req.user._id,
       issueType,
       description,
-      latitude,
-      longitude,
+      address,
       zone: zoneId,
       status: "PENDING",
     });
@@ -56,86 +64,59 @@ export const uploadImage = async (req, res) => {
       return res.status(404).json({ message: "Complaint not found" });
     }
 
-    if (type === "BEFORE") {
-      complaint.beforeImage = imagePath;
+    if (type === "BEFORE" || type === "AFTER") {
+      if (type === "BEFORE") complaint.beforeImage = imagePath;
+      if (type === "AFTER") complaint.afterImage = imagePath;
 
-      // Try AI analysis
+      // AI analysis
       try {
         const aiUrl = process.env.AI_SERVICE_URL || "http://localhost:5001";
-        const formData = new FormData();
-        const fs = await import("fs");
         const path = await import("path");
         const { fileURLToPath } = await import("url");
         const __filename = fileURLToPath(import.meta.url);
         const __dirname = path.dirname(__filename);
-        const filePath = path.join(
-          __dirname,
-          "..",
-          "uploads",
-          req.file.filename,
-        );
+        const filePath = path.join(__dirname, "..", "uploads", req.file.filename);
 
-        const response = await fetch(`${aiUrl}/analyze`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            imagePath: filePath,
-            issueType: complaint.issueType,
-          }),
+        const response = await axios.post(`${aiUrl}/analyze`, {
+          imagePath: filePath,
+          issueType: complaint.issueType,
+          checkFix: type === "AFTER",
+        }, {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Internal-Secret': process.env.AI_SERVICE_SECRET || 'civic-fix-ai-top-secret'
+          }
         });
 
-        if (response.ok) {
-          const aiResult = await response.json();
-          complaint.aiVerified = aiResult.isReal;
-          complaint.aiConfidence = aiResult.confidence;
-          complaint.aiDetectedIssue = aiResult.detectedIssue;
+        const aiResult = response.data;
 
-          if (aiResult.isReal) {
-            complaint.status = "APPROVED";
+        if (response.status === 200) { // Check for successful response
+          if (type === "BEFORE") {
+            complaint.aiVerified = aiResult.isReal;
+            complaint.aiConfidence = aiResult.confidence;
+            complaint.status = aiResult.isReal ? "APPROVED" : "REJECTED";
             await StatusLog.create({
               complaint: complaint._id,
               oldStatus: "PENDING",
-              newStatus: "APPROVED",
+              newStatus: complaint.status,
               changedBy: req.user._id,
-              note: `AI verified (confidence: ${(aiResult.confidence * 100).toFixed(1)}%)`,
+              note: `AI ${aiResult.isReal ? "verified" : "rejected"} (conf: ${(aiResult.confidence * 100).toFixed(0)}%)`,
             });
           } else {
-            complaint.status = "REJECTED";
+            // "AFTER" image - only log it, status update is usually manual but we can hint
             await StatusLog.create({
               complaint: complaint._id,
-              oldStatus: "PENDING",
-              newStatus: "REJECTED",
+              oldStatus: complaint.status,
+              newStatus: complaint.status,
               changedBy: req.user._id,
-              note: `AI rejected (confidence: ${(aiResult.confidence * 100).toFixed(1)}%)`,
+              note: `After-image AI check: ${aiResult.isReal ? "Resolution confirmed" : "Issue may still be present"}`,
             });
           }
-        } else {
-          // AI service not available – auto-approve
-          complaint.status = "APPROVED";
-          complaint.aiVerified = false;
-          await StatusLog.create({
-            complaint: complaint._id,
-            oldStatus: "PENDING",
-            newStatus: "APPROVED",
-            changedBy: req.user._id,
-            note: "Auto-approved (AI service unavailable)",
-          });
         }
       } catch (aiErr) {
-        // AI service error – auto-approve
-        console.warn("AI service unavailable:", aiErr.message);
-        complaint.status = "APPROVED";
-        complaint.aiVerified = false;
-        await StatusLog.create({
-          complaint: complaint._id,
-          oldStatus: "PENDING",
-          newStatus: "APPROVED",
-          changedBy: req.user._id,
-          note: "Auto-approved (AI service unavailable)",
-        });
+        console.warn("AI service failure, proceeding without AI flags");
+        if (type === "BEFORE") complaint.status = "APPROVED"; // Fallback
       }
-    } else if (type === "AFTER") {
-      complaint.afterImage = imagePath;
     }
 
     await complaint.save();
@@ -149,15 +130,22 @@ export const uploadImage = async (req, res) => {
 // GET /api/complaints — Get all complaints (with optional filters)
 export const getComplaints = async (req, res) => {
   try {
-    const { status, issueType, zone, range } = req.query;
+    const { status, issueType, zone, range, search } = req.query;
     const filter = {};
 
-    if (status) filter.status = status;
-    if (issueType) filter.issueType = issueType;
-    if (zone) filter.zone = zone;
+    if (status && status !== "ALL") filter.status = status;
+    if (issueType && issueType !== "ALL") filter.issueType = issueType;
+    if (zone && zone !== "ALL") filter.zone = zone;
+
+    if (search) {
+      filter.$or = [
+        { description: { $regex: search, $options: "i" } },
+        { address: { $regex: search, $options: "i" } },
+      ];
+    }
 
     // Time range filter
-    if (range) {
+    if (range && range !== "ALL") {
       const now = new Date();
       let startDate;
       switch (range) {

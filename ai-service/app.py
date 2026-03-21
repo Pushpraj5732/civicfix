@@ -37,8 +37,8 @@ def load_models():
         print(f'⚠️  Error loading models: {e}')
 
 
-def predict_with_model(image_path, issue_type):
-    """Run prediction using the appropriate model."""
+def predict_with_model(image_path, issue_type, check_fix=False):
+    """Run prediction using the appropriate model. If check_fix is True, verifies that the issue is no longer present."""
     CONFIDENCE_THRESHOLD = 0.70  # 70% minimum to make a definitive call
 
     try:
@@ -100,6 +100,8 @@ def predict_with_model(image_path, issue_type):
 
         confidence_pct = confidence * 100.0
 
+        confidence_pct = confidence * 100.0
+
         # Apply threshold: if the model isn't sure enough, mark uncertain
         if confidence_pct < CONFIDENCE_THRESHOLD * 100:
             return {
@@ -108,10 +110,15 @@ def predict_with_model(image_path, issue_type):
                 'detectedIssue': 'uncertain'
             }
 
-        is_real = (leaning == detected)
+        if check_fix:
+            # For "After" images, success = resolving state (clean_label)
+            is_valid = (leaning == clean_label)
+        else:
+            # For "Before" images, success = problem state (detected)
+            is_valid = (leaning == detected)
 
         return {
-            'isReal': is_real,
+            'isReal': is_valid,
             'confidence': round(confidence, 4),
             'detectedIssue': leaning
         }
@@ -128,6 +135,11 @@ def predict_with_model(image_path, issue_type):
 @app.route('/analyze', methods=['POST'])
 def analyze():
     """Analyze an uploaded complaint image."""
+    # Internal secret check
+    secret = request.headers.get('X-Internal-Secret')
+    if secret != os.environ.get('AI_SERVICE_SECRET', 'civic-fix-ai-top-secret'):
+        return jsonify({'error': 'Unauthorized'}), 401
+
     data = request.get_json()
     
     if not data or 'imagePath' not in data:
@@ -135,18 +147,19 @@ def analyze():
     
     image_path = data['imagePath']
     issue_type = data.get('issueType', 'GARBAGE')
+    check_fix = data.get('checkFix', False)
     
     if not os.path.exists(image_path):
         return jsonify({'error': f'Image not found: {image_path}'}), 404
     
     if models:
-        result = predict_with_model(image_path, issue_type)
+        result = predict_with_model(image_path, issue_type, check_fix)
     else:
         # Mock prediction when models aren't loaded
         result = {
             'isReal': True,
             'confidence': 0.92,
-            'detectedIssue': issue_type.lower()
+            'detectedIssue': 'resolved' if check_fix else issue_type.lower()
         }
     
     return jsonify(result)

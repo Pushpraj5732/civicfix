@@ -21,22 +21,58 @@ export default function ZoneIssuePieChart({ data }) {
           issueMap["DRAINAGE"] || 0,
           issueMap["STREET_LIGHT"] || 0,
         ],
-        backgroundColor: ["#0ea5e9", "#10b981", "#f59e0b", "#8b5cf6"],
-        borderWidth: 0,
-        hoverOffset: 8,
+        backgroundColor: [
+          "rgba(14, 165, 233, 0.85)", 
+          "rgba(16, 185, 129, 0.85)", 
+          "rgba(245, 158, 11, 0.85)", 
+          "rgba(139, 92, 246, 0.85)"
+        ],
+        borderColor: [
+          "#0ea5e9", 
+          "#10b981", 
+          "#f59e0b", 
+          "#8b5cf6"
+        ],
+        borderWidth: 2,
+        hoverOffset: 12,
+        hoverBorderColor: "#ffffff"
       },
     ],
   };
 
   const options = {
     responsive: true,
+    maintainAspectRatio: false,
     plugins: {
       legend: {
-        position: "bottom",
-        labels: { color: "#94a3b8", padding: 16, usePointStyle: true },
+        position: "right",
+        labels: { 
+          color: "#64748b", 
+          padding: 20, 
+          usePointStyle: true,
+          font: { family: "'Inter', sans-serif", size: 12, weight: "600" }
+        },
       },
+      tooltip: {
+        backgroundColor: "rgba(15, 23, 42, 0.9)",
+        titleColor: "#f8fafc",
+        bodyColor: "#ffffff",
+        borderColor: "rgba(255,255,255,0.1)",
+        borderWidth: 1,
+        padding: 12,
+        cornerRadius: 8,
+        titleFont: { size: 13, family: "'Inter', sans-serif" },
+        bodyFont: { size: 14, family: "'Inter', sans-serif", weight: "bold" }
+      }
     },
-    cutout: "60%",
+    cutout: "65%",
+    radius: "90%",
+    animation: {
+      animateScale: true,
+      animateRotate: true,
+      duration: 1200,
+      easing: "easeOutExpo"
+    }
   };
 
   return <Doughnut data={chartData} options={options} />;

@@ -18,13 +18,13 @@ api.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response?.status === 401) {
-      const publicPages = ["/login", "/register"];
+      const publicPages = ["/", "/login", "/register"];
       const isPublicPage = publicPages.includes(window.location.pathname);
 
-      // Only redirect to login if we're NOT already on a public page
+      // Only redirect to landing if we're NOT already on a public page
       if (!isPublicPage && localStorage.getItem("token")) {
         localStorage.removeItem("token");
-        window.location.href = "/login";
+        window.location.href = "/";
       }
     }
     return Promise.reject(error);

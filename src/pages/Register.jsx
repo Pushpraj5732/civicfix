@@ -67,7 +67,7 @@ export default function Register() {
         {theme === "dark" ? "☀️" : "🌙"}
       </button>
 
-      <div className="glass-card p-8 w-full max-w-md relative z-10 animate-fade-in">
+      <div className="glass-card p-6 sm:p-8 w-full max-w-md relative z-10 animate-fade-in">
         <div className="text-center mb-8">
           <h1 className="text-3xl font-bold gradient-text mb-2">CivicFix</h1>
           <p className="text-muted text-sm">
