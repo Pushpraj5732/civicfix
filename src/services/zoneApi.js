@@ -1,11 +1,11 @@
 import api from "./api";
 
-export const getAdminStats = (range) => {
-  return api.get("/api/admin/stats", { params: { range } });
+export const getAdminStats = (params) => {
+  return api.get("/api/admin/stats", { params });
 };
 
-export const getZoneStats = (range) => {
-  return api.get("/api/admin/zone-stats", { params: { range } });
+export const getZoneStats = (params) => {
+  return api.get("/api/admin/zone-stats", { params });
 };
 
 // Admin-only zone list (with head info)
@@ -18,8 +18,8 @@ export const getZones = () => {
   return api.get("/api/zones");
 };
 
-export const getMyZoneStats = (range) => {
-  return api.get("/api/zone/my-stats", { params: { range } });
+export const getMyZoneStats = (params) => {
+  return api.get("/api/zone/my-stats", { params });
 };
 
 export const getZoneComplaints = (params) => {

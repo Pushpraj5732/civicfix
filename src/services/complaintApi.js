@@ -26,6 +26,10 @@ export const getComplaintImages = (complaintId) => {
   return api.get(`/api/complaints/${complaintId}/images`);
 };
 
+export const getPublicStats = () => {
+  return api.get("/api/complaints/stats");
+};
+
 export const getMyComplaints = () => {
   return api.get("/api/complaints/my");
 };

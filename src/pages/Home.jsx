@@ -2,8 +2,7 @@ import Navbar from "../components/Navbar";
 import { useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import { useAuth } from "../context/AuthContext";
-import { getAdminStats } from "../services/zoneApi";
-import { getMyComplaints } from "../services/complaintApi";
+import { getPublicStats, getMyComplaints } from "../services/complaintApi";
 import CivicHeatMap from "../components/CivicHeatMap";
 import StatusBadge from "../components/StatusBadge";
 
@@ -46,23 +45,26 @@ export default function Home() {
   }, [user, navigate]);
 
   useEffect(() => {
-    getAdminStats()
-      .then((res) => {
-        const d = res.data;
-        setStats({
-          total: d.total || 0,
-          pending: (d.pending || 0) + (d.approved || 0),
-          inProgress: d.inProgress || 0,
-          resolved: d.resolved || 0,
-        });
-      })
-      .catch(() => {})
-      .finally(() => setStatsLoading(false));
+    // Only fetch stats if the user stays on the Home page (not admin/zone hd)
+    if (user?.role === "USER") {
+      getPublicStats()
+        .then((res) => {
+          const d = res.data;
+          setStats({
+            total: d.total || 0,
+            pending: (d.pending || 0) + (d.approved || 0),
+            inProgress: d.inProgress || 0,
+            resolved: d.resolved || 0,
+          });
+        })
+        .catch(() => {})
+        .finally(() => setStatsLoading(false));
 
-    getMyComplaints()
-      .then((res) => setRecentComplaints(res.data.slice(0, 3)))
-      .catch(() => {});
-  }, []);
+      getMyComplaints()
+        .then((res) => setRecentComplaints(res.data.slice(0, 3)))
+        .catch(() => {});
+    }
+  }, [user]);
 
   const statBar = [
     { label: "Total City Issues", value: stats.total, color: "text-blue-500 dark:text-blue-400", icon: "📊" },

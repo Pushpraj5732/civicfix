@@ -6,8 +6,8 @@ import { fillTrendGaps } from "../utils/chartHelper.js";
 // GET /api/zone/my-stats — Zone head's own zone stats
 export const getMyZoneStats = async (req, res) => {
   try {
-    const { range } = req.query;
-    const dateFilter = getDateFilter(range);
+    const { range, startDate, endDate } = req.query;
+    const dateFilter = getDateFilter(range, startDate, endDate);
     const zoneId = req.user.zone;
 
     if (!zoneId) {
@@ -38,9 +38,9 @@ export const getMyZoneStats = async (req, res) => {
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]);
 
-    // Daily trend
+    // Daily trend (last 30 days, always fixed 30d window scoped to zone)
     const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
-    const trendFilter = { ...filter, createdAt: { $gte: thirtyDaysAgo } };
+    const trendFilter = { zone: zoneId, createdAt: { $gte: thirtyDaysAgo } };
     const rawTrend = await Complaint.aggregate([
       { $match: trendFilter },
       {
@@ -71,7 +71,7 @@ export const getMyZoneStats = async (req, res) => {
   }
 };
 
-// GET /api/zone/complaints — Get only this zone's complaints
+// GET /api/zone/complaints — Get only this zone's complaints with filters
 export const getZoneComplaints = async (req, res) => {
   try {
     const zoneId = req.user.zone;
@@ -79,22 +79,21 @@ export const getZoneComplaints = async (req, res) => {
       return res.status(400).json({ message: "No zone assigned" });
     }
 
-    const { status, range, issueType, search } = req.query;
+    const { status, range, startDate, endDate, issueType, search } = req.query;
     const filter = { zone: zoneId };
-    
+
     if (status && status !== "ALL") filter.status = status;
     if (issueType && issueType !== "ALL") filter.issueType = issueType;
 
-    const dateFilter = getDateFilter(range);
+    const dateFilter = getDateFilter(range, startDate, endDate);
     Object.assign(filter, dateFilter);
 
-    // Search query
-    if (search) {
+    // Safe search — only text fields, no _id tricks
+    if (search && search.trim()) {
       filter.$or = [
-        { description: { $regex: search, $options: "i" } },
-        { address: { $regex: search, $options: "i" } },
-        { _id: search.length === 24 ? search : null }, // Exact ID match if valid length
-      ].filter(f => f._id !== null);
+        { description: { $regex: search.trim(), $options: "i" } },
+        { address: { $regex: search.trim(), $options: "i" } },
+      ];
     }
 
     const complaints = await Complaint.find(filter)
@@ -103,6 +102,7 @@ export const getZoneComplaints = async (req, res) => {
 
     res.json(complaints);
   } catch (err) {
+    console.error("Zone complaints error:", err);
     res.status(500).json({ message: "Server error" });
   }
 };

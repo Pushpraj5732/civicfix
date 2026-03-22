@@ -13,6 +13,7 @@ import ZoneIssuePieChart from "../components/charts/ZoneIssuePieChart";
 import TrendLineChart from "../components/charts/TrendLineChart";
 import { gsap } from "gsap";
 
+
 const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:5000";
 
 const ISSUE_ICONS = {
@@ -26,6 +27,8 @@ export default function ZoneHeadDashboard() {
   const { user } = useAuth();
   const [activeTab, setActiveTab] = useState("analytics");
   const [range, setRange] = useState("");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
   const [stats, setStats] = useState(null);
   const [complaints, setComplaints] = useState([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
@@ -48,9 +51,17 @@ export default function ZoneHeadDashboard() {
   const cardsRef = useRef(null);
 
   // ── Analytics fetch ──────────────────────────────────────────────────────
-  const fetchAnalytics = async (r) => {
+  const fetchAnalytics = async (r, start = customStart, end = customEnd) => {
     try {
-      const res = await getMyZoneStats(r);
+      const params = {};
+      // Custom date range takes priority — never send both
+      if (start && end) {
+        params.startDate = start;
+        params.endDate = end;
+      } else if (r) {
+        params.range = r;
+      }
+      const res = await getMyZoneStats(params);
       setStats(res.data);
     } catch (err) {
       console.error("Analytics fetch error:", err);
@@ -60,8 +71,12 @@ export default function ZoneHeadDashboard() {
   };
 
   useEffect(() => {
-    fetchAnalytics(range);
-  }, [range]);
+    const bothDatesSet = customStart && customEnd;
+    const noDates = !customStart && !customEnd;
+    if (bothDatesSet || noDates) {
+      fetchAnalytics(range, customStart, customEnd);
+    }
+  }, [range, customStart, customEnd]);
 
   // ── Complaints fetch ─────────────────────────────────────────────────────
   const fetchComplaints = async () => {
@@ -71,7 +86,14 @@ export default function ZoneHeadDashboard() {
       if (statusFilter !== "ALL") params.status = statusFilter;
       if (issueFilter !== "ALL") params.issueType = issueFilter;
       if (searchQuery) params.search = searchQuery;
-      if (range) params.range = range;
+
+      // Custom date range takes priority — never send both
+      if (customStart && customEnd) {
+        params.startDate = customStart;
+        params.endDate = customEnd;
+      } else if (range) {
+        params.range = range;
+      }
 
       const res = await getZoneComplaints(params);
       setComplaints(res.data);
@@ -95,10 +117,14 @@ export default function ZoneHeadDashboard() {
 
   useEffect(() => {
     if (activeTab === "complaints") {
-      const timer = setTimeout(fetchComplaints, 300);
-      return () => clearTimeout(timer);
+      const bothDatesSet = customStart && customEnd;
+      const noDates = !customStart && !customEnd;
+      if (bothDatesSet || noDates) {
+        const timer = setTimeout(fetchComplaints, 300);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [activeTab, statusFilter, issueFilter, searchQuery]);
+  }, [activeTab, statusFilter, issueFilter, searchQuery, range, customStart, customEnd]);
 
   // ── Status update ────────────────────────────────────────────────────────
   const handleStatusUpdate = async (id, newStatus) => {
@@ -111,7 +137,7 @@ export default function ZoneHeadDashboard() {
       );
       setUpdateSuccess(`Work ${newStatus === "IN_PROGRESS" ? "started" : "updated"} successfully!`);
       setTimeout(() => setUpdateSuccess(""), 3000);
-      fetchAnalytics(range);
+      fetchAnalytics(range, customStart, customEnd);
     } catch (err) {
       setUpdateError("Failed to update status.");
       setTimeout(() => setUpdateError(""), 4000);
@@ -155,7 +181,7 @@ export default function ZoneHeadDashboard() {
       );
       setUpdateSuccess("Resolution submitted and verified by AI!");
       setTimeout(() => setUpdateSuccess(""), 4000);
-      fetchAnalytics(range);
+      fetchAnalytics(range, customStart, customEnd);
 
       cancelResolveProcess();
       setExpandedId(null);
@@ -206,21 +232,34 @@ export default function ZoneHeadDashboard() {
             <h2 className="section-title mb-1">📍 Zone Dashboard</h2>
             <p className="text-muted text-sm">{user?.zone?.name || "Your Zone"} • Managed by {user?.name}</p>
           </div>
-          {activeTab === "analytics" && (
-            <div className="flex flex-wrap gap-2">
-              {ranges.map((r) => (
-                <button
-                  key={r.value}
-                  onClick={() => setRange(r.value)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                    range === r.value ? "bg-primary-500 text-white" : "bg-gray-100 dark:bg-white/5 text-gray-500"
-                  }`}
-                >
-                  {r.label}
-                </button>
-              ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 mr-2 bg-gray-50 dark:bg-white/5 p-1 rounded-xl border border-gray-200 dark:border-white/10">
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => { setCustomStart(e.target.value); setRange(""); }}
+                className="bg-transparent text-sm text-gray-600 dark:text-gray-300 outline-none px-2"
+              />
+              <span className="text-gray-400 text-xs">to</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => { setCustomEnd(e.target.value); setRange(""); }}
+                className="bg-transparent text-sm text-gray-600 dark:text-gray-300 outline-none px-2"
+              />
             </div>
-          )}
+            {ranges.map((r) => (
+              <button
+                key={r.value}
+                onClick={() => { setRange(r.value); setCustomStart(""); setCustomEnd(""); }}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  range === r.value && !customStart ? "bg-primary-500 text-white" : "bg-gray-100 dark:bg-white/5 text-gray-500 hover:bg-primary-500/10 hover:text-primary-500"
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tabs */}

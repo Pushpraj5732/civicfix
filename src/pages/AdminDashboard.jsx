@@ -29,6 +29,8 @@ const STATUS_TRANSITIONS = {
 export default function AdminDashboard() {
   const [activeTab, setActiveTab] = useState("analytics");
   const [range, setRange] = useState("");
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
   const [stats, setStats] = useState(null);
   const [zoneStats, setZoneStats] = useState([]);
   const [analyticsLoading, setAnalyticsLoading] = useState(true);
@@ -42,14 +44,23 @@ export default function AdminDashboard() {
   const [updateError, setUpdateError] = useState("");
   const [updateSuccess, setUpdateSuccess] = useState("");
   const [updatingId, setUpdatingId] = useState(null);
+  const [expandedId, setExpandedId] = useState(null);
   const cardsRef = useRef(null);
 
   // ── Analytics fetch ──────────────────────────────────────────────────────
-  const fetchAnalytics = async (r) => {
+  const fetchAnalytics = async (r, start = customStart, end = customEnd) => {
     try {
+      const params = {};
+      // Custom date range takes priority — never send both
+      if (start && end) {
+        params.startDate = start;
+        params.endDate = end;
+      } else if (r) {
+        params.range = r;
+      }
       const [statsRes, zoneRes] = await Promise.all([
-        getAdminStats(r),
-        getZoneStats(r),
+        getAdminStats(params),
+        getZoneStats(params),
       ]);
       setStats(statsRes.data);
       setZoneStats(zoneRes.data);
@@ -61,8 +72,13 @@ export default function AdminDashboard() {
   };
 
   useEffect(() => {
-    fetchAnalytics(range);
-  }, [range]);
+    // Only refetch when both dates are set, or when range changes, or when dates are cleared
+    const bothDatesSet = customStart && customEnd;
+    const noDates = !customStart && !customEnd;
+    if (bothDatesSet || noDates) {
+      fetchAnalytics(range, customStart, customEnd);
+    }
+  }, [range, customStart, customEnd]);
 
   // ── Complaints fetch ─────────────────────────────────────────────────────
   const fetchComplaints = async () => {
@@ -72,8 +88,15 @@ export default function AdminDashboard() {
       if (statusFilter !== "ALL") params.status = statusFilter;
       if (issueFilter !== "ALL") params.issueType = issueFilter;
       if (searchQuery) params.search = searchQuery;
-      if (range) params.range = range;
-      
+
+      // Custom date range takes priority over preset range — never send both
+      if (customStart && customEnd) {
+        params.startDate = customStart;
+        params.endDate = customEnd;
+      } else if (range) {
+        params.range = range;
+      }
+
       const res = await getComplaints(params);
       setComplaints(res.data);
       
@@ -96,10 +119,15 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     if (activeTab === "complaints") {
-      const timer = setTimeout(fetchComplaints, 300); // Debounce search
-      return () => clearTimeout(timer);
+      // Only refetch on custom change when BOTH dates are filled or both are empty
+      const bothDatesSet = customStart && customEnd;
+      const noDates = !customStart && !customEnd;
+      if (bothDatesSet || noDates) {
+        const timer = setTimeout(fetchComplaints, 300);
+        return () => clearTimeout(timer);
+      }
     }
-  }, [activeTab, statusFilter, issueFilter, searchQuery]);
+  }, [activeTab, statusFilter, issueFilter, searchQuery, range, customStart, customEnd]);
 
   // ── Status update ────────────────────────────────────────────────────────
   const handleStatusUpdate = async (id, newStatus) => {
@@ -113,6 +141,7 @@ export default function AdminDashboard() {
       );
       setUpdateSuccess(`Status updated to ${newStatus}`);
       setTimeout(() => setUpdateSuccess(""), 3000);
+      fetchAnalytics(range, customStart, customEnd);
     } catch (err) {
       setUpdateError("Failed to update status. Please try again.");
       setTimeout(() => setUpdateError(""), 4000);
@@ -120,6 +149,8 @@ export default function AdminDashboard() {
       setUpdatingId(null);
     }
   };
+
+  const toggleExpand = (id) => setExpandedId(expandedId === id ? null : id);
 
   const ranges = [
     { value: "", label: "All Time" },
@@ -160,23 +191,36 @@ export default function AdminDashboard() {
             <h2 className="section-title mb-1">⚙️ Admin Dashboard</h2>
             <p className="text-muted text-sm">City-wide complaint analytics & management</p>
           </div>
-          {activeTab === "analytics" && (
-            <div className="flex flex-wrap gap-2">
-              {ranges.map((r) => (
-                <button
-                  key={r.value}
-                  onClick={() => setRange(r.value)}
-                  className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
-                    range === r.value
-                      ? "bg-primary-500/20 text-primary-500 border border-primary-500/30"
-                      : "bg-gray-100 dark:bg-white/5 text-gray-500 border border-gray-200 dark:border-white/10"
-                  }`}
-                >
-                  {r.label}
-                </button>
-              ))}
+          <div className="flex flex-wrap items-center gap-2">
+            <div className="flex items-center gap-2 mr-2 bg-gray-50 dark:bg-white/5 p-1 rounded-xl border border-gray-200 dark:border-white/10">
+              <input
+                type="date"
+                value={customStart}
+                onChange={(e) => { setCustomStart(e.target.value); setRange(""); }}
+                className="bg-transparent text-sm text-gray-600 dark:text-gray-300 outline-none px-2"
+              />
+              <span className="text-gray-400 text-xs">to</span>
+              <input
+                type="date"
+                value={customEnd}
+                onChange={(e) => { setCustomEnd(e.target.value); setRange(""); }}
+                className="bg-transparent text-sm text-gray-600 dark:text-gray-300 outline-none px-2"
+              />
             </div>
-          )}
+            {ranges.map((r) => (
+              <button
+                key={r.value}
+                onClick={() => { setRange(r.value); setCustomStart(""); setCustomEnd(""); }}
+                className={`px-4 py-2 rounded-xl text-sm font-medium transition-all ${
+                  range === r.value && !customStart
+                    ? "bg-primary-500/20 text-primary-500 border border-primary-500/30"
+                    : "bg-gray-100 dark:bg-white/5 text-gray-500 border border-gray-200 dark:border-white/10 hover:border-primary-500/30"
+                }`}
+              >
+                {r.label}
+              </button>
+            ))}
+          </div>
         </div>
 
         {/* Tabs */}
@@ -285,9 +329,10 @@ export default function AdminDashboard() {
                 ) : (
                   complaints.map((c) => {
                     const nextStatuses = STATUS_TRANSITIONS[c.status] || [];
+                    const isExpanded = expandedId === c._id;
                     return (
-                      <div key={c._id} className="glass-card p-4 border border-gray-200 dark:border-white/5 hover:border-primary-500/20 transition-all">
-                        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                      <div key={c._id} className={`glass-card overflow-hidden border transition-all ${isExpanded ? "border-primary-500/30 shadow-lg" : "border-gray-200 dark:border-white/5 hover:border-primary-500/20"}`}>
+                        <div className="p-4 flex flex-col md:flex-row md:items-center justify-between gap-4 cursor-pointer" onClick={() => toggleExpand(c._id)}>
                           <div className="flex gap-4 min-w-0">
                             <div className="w-16 h-16 rounded-xl overflow-hidden border border-gray-200 dark:border-white/10 shrink-0 bg-gray-100 dark:bg-white/5 flex items-center justify-center text-2xl">
                               {c.beforeImage ? <img src={`${API_BASE}${c.beforeImage}`} className="w-full h-full object-cover" /> : ISSUE_ICONS[c.issueType]}
@@ -306,7 +351,7 @@ export default function AdminDashboard() {
                               </div>
                             </div>
                           </div>
-                          <div className="flex gap-2 shrink-0 overflow-x-auto pb-2 md:pb-0">
+                          <div className="flex gap-2 shrink-0 overflow-x-auto pb-2 md:pb-0" onClick={(e) => e.stopPropagation()}>
                             {nextStatuses.map((ns) => (
                               <button
                                 key={ns}
@@ -319,6 +364,58 @@ export default function AdminDashboard() {
                             ))}
                           </div>
                         </div>
+
+                        {/* Expanded details view */}
+                        {isExpanded && (
+                          <div className="border-t border-gray-200 dark:border-white/10 bg-gray-50/50 dark:bg-white/5 p-6 animate-fade-in">
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                              <div>
+                                <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-4">Complaint Details</h4>
+                                <div className="space-y-4">
+                                  <div>
+                                    <p className="text-xs text-muted mb-1">Description</p>
+                                    <p className="text-sm text-heading">{c.description}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted mb-1">Location Address</p>
+                                    <p className="text-sm text-heading break-words">{c.address}</p>
+                                  </div>
+                                  <div>
+                                    <p className="text-xs text-muted mb-1">User Info</p>
+                                    <p className="text-sm font-medium">{c.user?.name} ({c.user?.email})</p>
+                                  </div>
+                                </div>
+                              </div>
+                              <div>
+                                <h4 className="text-xs font-bold text-muted uppercase tracking-wider mb-4">Evidence & Verification</h4>
+                                <div className="flex flex-col gap-4">
+                                  {c.beforeImage && (
+                                    <div className="overflow-hidden rounded-xl border border-gray-200 dark:border-white/10">
+                                      <div className="bg-gray-100 dark:bg-dark-900 py-2 px-3 text-xs font-bold text-muted flex justify-between">
+                                        <span>Before Resolution</span>
+                                        {c.aiVerified && <span className="text-violet-500">AI Conf: {(c.aiConfidence * 100).toFixed(0)}%</span>}
+                                      </div>
+                                      <img src={`${API_BASE}${c.beforeImage}`} className="w-full h-48 object-cover" />
+                                    </div>
+                                  )}
+                                  {c.afterImage && (
+                                    <div className="overflow-hidden rounded-xl border border-emerald-500/30 shadow-lg shadow-emerald-500/10">
+                                      <div className="bg-emerald-500/10 py-2 px-3 text-xs font-bold text-emerald-600 dark:text-emerald-400">
+                                        After Resolution (Completed Work)
+                                      </div>
+                                      <img src={`${API_BASE}${c.afterImage}`} className="w-full h-48 object-cover" />
+                                    </div>
+                                  )}
+                                  {!c.beforeImage && !c.afterImage && (
+                                    <div className="p-4 bg-gray-100 dark:bg-dark-900 rounded-xl text-center text-muted text-sm border border-dashed border-gray-300 dark:border-white/10">
+                                      No photographic evidence provided.
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        )}
                       </div>
                     );
                   })
