@@ -91,4 +91,3 @@ CivicFix is fully responsive, featuring a **Mobile-First Design** optimized for 
 
 ## 🤝 Contribution
 Developed for the **6th Semester Mini Project**.
-*Built with ❤️ by [Your Name/Team Name]*

@@ -6,6 +6,7 @@ import {
   getComplaints,
   getMyComplaints,
   getComplaintById,
+  getPublicStats,
   updateStatus,
   getComplaintImages,
 } from "../controllers/complaintController.js";
@@ -32,8 +33,13 @@ const complaintValidators = [
 
 router.post("/", auth, complaintValidators, createComplaint);
 router.post("/:id/upload-image", auth, upload.single("file"), uploadImage);
-router.get("/", auth, getComplaints);
-router.get("/my", auth, getMyComplaints);
+
+// ── Static/named routes MUST come BEFORE /:id ──────────────────────────────
+router.get("/stats", auth, getPublicStats);       // Home page city-wide stats
+router.get("/my", auth, getMyComplaints);         // Logged-in user's complaints
+router.get("/", auth, getComplaints);             // All complaints (admin/filter)
+
+// ── Param routes AFTER all named routes ────────────────────────────────────
 router.get("/:id", auth, getComplaintById);
 router.get("/:id/images", auth, getComplaintImages);
 router.put("/:id/status", auth, updateStatus);

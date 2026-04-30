@@ -1,3 +1,4 @@
+import Complaint from "../models/Complaint.js";
 import Zone from "../models/Zone.js";
 import { getDateFilter } from "../utils/dateFilter.js";
 import { fillTrendGaps } from "../utils/chartHelper.js";
@@ -5,8 +6,8 @@ import { fillTrendGaps } from "../utils/chartHelper.js";
 // GET /api/admin/stats — Dashboard stats with time range filter
 export const getAdminStats = async (req, res) => {
   try {
-    const { range } = req.query;
-    const dateFilter = getDateFilter(range);
+    const { range, startDate, endDate } = req.query;
+    const dateFilter = getDateFilter(range, startDate, endDate);
 
     const [total, pending, approved, inProgress, resolved, rejected] =
       await Promise.all([
@@ -30,7 +31,8 @@ export const getAdminStats = async (req, res) => {
       { $group: { _id: "$status", count: { $sum: 1 } } },
     ]);
 
-    // Daily trend (last 30 days)
+    // Daily trend (last 30 days, always fixed 30d window)
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
     const trendFilter = { createdAt: { $gte: thirtyDaysAgo } };
     const rawTrend = await Complaint.aggregate([
       { $match: trendFilter },
@@ -65,8 +67,8 @@ export const getAdminStats = async (req, res) => {
 // GET /api/admin/zone-stats — Zone-wise analytics
 export const getZoneStats = async (req, res) => {
   try {
-    const { range } = req.query;
-    const dateFilter = getDateFilter(range);
+    const { range, startDate, endDate } = req.query;
+    const dateFilter = getDateFilter(range, startDate, endDate);
 
     const zones = await Zone.find().lean();
 
@@ -98,7 +100,7 @@ export const getZoneStats = async (req, res) => {
   }
 };
 
-// GET /api/admin/zones — Get all zones
+// GET /api/admin/zones — Get all zones with zone head info
 export const getZones = async (req, res) => {
   try {
     const zones = await Zone.find().populate("head", "name email");

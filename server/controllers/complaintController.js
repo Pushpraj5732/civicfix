@@ -4,6 +4,7 @@ import Complaint from "../models/Complaint.js";
 import StatusLog from "../models/StatusLog.js";
 import Zone from "../models/Zone.js";
 import { validationResult } from "express-validator";
+import { getDateFilter } from "../utils/dateFilter.js";
 
 // POST /api/complaints — Create complaint
 export const createComplaint = async (req, res) => {
@@ -127,10 +128,33 @@ export const uploadImage = async (req, res) => {
   }
 };
 
+// GET /api/complaints/stats — Get basic city-wide stats for all users
+export const getPublicStats = async (req, res) => {
+  try {
+    const [total, pending, approved, inProgress, resolved] = await Promise.all([
+      Complaint.countDocuments(),
+      Complaint.countDocuments({ status: "PENDING" }),
+      Complaint.countDocuments({ status: "APPROVED" }),
+      Complaint.countDocuments({ status: "IN_PROGRESS" }),
+      Complaint.countDocuments({ status: "RESOLVED" }),
+    ]);
+
+    res.json({
+      total,
+      pending,
+      approved,
+      inProgress,
+      resolved,
+    });
+  } catch (err) {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
 // GET /api/complaints — Get all complaints (with optional filters)
 export const getComplaints = async (req, res) => {
   try {
-    const { status, issueType, zone, range, search } = req.query;
+    const { status, issueType, zone, range, startDate, endDate, search } = req.query;
     const filter = {};
 
     if (status && status !== "ALL") filter.status = status;
@@ -144,23 +168,8 @@ export const getComplaints = async (req, res) => {
       ];
     }
 
-    // Time range filter
-    if (range && range !== "ALL") {
-      const now = new Date();
-      let startDate;
-      switch (range) {
-        case "1w":
-          startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
-          break;
-        case "1m":
-          startDate = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
-          break;
-        case "6m":
-          startDate = new Date(now.getTime() - 180 * 24 * 60 * 60 * 1000);
-          break;
-      }
-      if (startDate) filter.createdAt = { $gte: startDate };
-    }
+    const dateFilter = getDateFilter(range, startDate, endDate);
+    Object.assign(filter, dateFilter);
 
     const complaints = await Complaint.find(filter)
       .populate("user", "name email")
